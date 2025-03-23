@@ -1,103 +1,167 @@
-import Image from "next/image";
+// app/page.tsx
+
+"use client";
+import { useState } from 'react';
+import CharacterForm from '../components/CharacterForm';
+import CharacterList from '../components/CharacterList';
+import { generateStoryWithOllama } from '../services/ollamaService';
+
+interface Character {
+  name: string;
+  description: string;
+  personality: string;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [response, setResponse] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const genres = [
+    { emoji: "🧙", value: "Fantasy" },
+    { emoji: "🕵️", value: "Mystery" },
+    { emoji: "💑", value: "Romance" },
+    { emoji: "🚀", value: "Sci-Fi" },
+  ];
+
+  const tones = [
+    { emoji: "😊", value: "Happy" },
+    { emoji: "😢", value: "Sad" },
+    { emoji: "😏", value: "Sarcastic" },
+    { emoji: "😂", value: "Funny" },
+  ];
+
+  const [state, setState] = useState({
+    genre: "",
+    tone: "",
+  });
+
+  const handleChange = ({
+    target: { name, value },
+  }: React.ChangeEvent<HTMLInputElement>) => {
+    setState({
+      ...state,
+      [name]: value,
+    });
+  };
+
+  const addCharacter = (character: Character) => {
+    if (editingCharacter) {
+      setCharacters(characters.map(c => c.name === editingCharacter.name ? character : c));
+      setEditingCharacter(null);
+    } else {
+      setCharacters([...characters, character]);
+    }
+  };
+
+  const editCharacter = (character: Character) => {
+    setEditingCharacter(character);
+  };
+
+  const deleteCharacter = (character: Character) => {
+    setCharacters(characters.filter(c => c.name !== character.name));
+  };
+
+  const generateStory = async () => {
+    setIsLoading(true);
+    const characterDetails = characters.map(c => `- Name: ${c.name}, Description: ${c.description}, Personality: ${c.personality}`).join('\n');
+    const prompt = `Characters:\n${characterDetails}\n\nGenerate a ${state.genre} story in a ${state.tone} tone.`;
+    try {
+      let fullResponse = await generateStoryWithOllama(prompt);
+      if (characters.length > 0) {
+        fullResponse += "\n\nCharacter Summaries:\n";
+        characters.forEach(character => {
+          fullResponse += `- ${character.name}: [Summary of their role in the story]\n`;
+        });
+      }
+      setResponse(fullResponse);
+    } catch (error) {
+      console.error("Error generating story:", error);
+      setResponse("Error generating story.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="mx-auto w-full p-24 flex flex-col">
+      <div className="p4 m-4">
+        <div className="flex flex-col items-center justify-center space-y-8">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold">Story Telling App</h2>
+            <p className="text-zinc-700 dark:text-zinc-400">
+              Customize the story by selecting the genre and tone.
+            </p>
+          </div>
+
+          <CharacterForm onSubmit={addCharacter} initialCharacter={editingCharacter}/>
+          <CharacterList characters={characters} onEdit={editCharacter} onDelete={deleteCharacter}/>
+
+          <div className="space-y-4 bg-opacity-25 bg-gray-700 rounded-lg p-4">
+            <h3 className="text-xl font-semibold text-white">Genre</h3> {/* Adjusted text color */}
+            <div className="flex flex-wrap justify-center">
+              {genres.map(({ value, emoji }) => (
+                <div
+                  key={value}
+                  className="p-4 m-2 bg-opacity-25 bg-gray-600 rounded-lg"
+                >
+                  <input
+                    id={value}
+                    type="radio"
+                    value={value}
+                    name="genre"
+                    onChange={handleChange}
+                  />
+                  <label className="ml-2 text-white" htmlFor={value}> {/* Adjusted text color */}
+                    {`${emoji} ${value}`}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4 bg-opacity-25 bg-gray-700 rounded-lg p-4">
+            <h3 className="text-xl font-semibold text-white">Tones</h3> {/* Adjusted text color */}
+            <div className="flex flex-wrap justify-center">
+              {tones.map(({ value, emoji }) => (
+                <div
+                  key={value}
+                  className="p-4 m-2 bg-opacity-25 bg-gray-600 rounded-lg"
+                >
+                  <input
+                    id={value}
+                    type="radio"
+                    value={value}
+                    name="tone"
+                    onChange={handleChange}
+                  />
+                  <label className="ml-2 text-white" htmlFor={value}> {/* Adjusted text color */}
+                    {`${emoji} ${value}`}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
+            disabled={isLoading || !state.genre || !state.tone}
+            onClick={generateStory}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Generate Story
+          </button>
+
+          <div
+            hidden={!response}
+            className="bg-opacity-25 bg-gray-700 rounded-lg p-4 text-white"
           >
-            Read our docs
-          </a>
+            {response}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
 }
+
+
