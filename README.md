@@ -37,7 +37,7 @@ This project is a Next.js application that allows users to create and manage cha
 2.  **Clone the Repository:**
     ```bash
     git clone [repository URL]
-    cd story-telling-app
+    cd Weekend-Project-3
     ```
 
 3.  **Install Dependencies:**
